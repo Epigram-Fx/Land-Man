@@ -8,6 +8,7 @@ import { Topbar } from "./components/Topbar";
 import { AuditPage } from "./features/audit/AuditPage";
 import { DashboardPage } from "./features/dashboard/DashboardPage";
 import { useDashboard } from "./features/dashboard/useDashboard";
+import { HomePage } from "./features/home/HomePage";
 import { CustomerDeleteDialog } from "./features/customers/CustomerDeleteDialog";
 import { CustomerFormDialog } from "./features/customers/CustomerFormDialog";
 import { CustomerPanel } from "./features/customers/CustomerPanel";
@@ -141,6 +142,13 @@ export default function App() {
   // On load, ask the server whether this browser already has a valid session
   // cookie. This is what keeps you signed in after a refresh.
   const [session, setSession] = useState<Session>({ status: "checking" });
+  const [pathname, setPathname] = useState(window.location.pathname);
+
+  useEffect(() => {
+    const syncPathname = () => setPathname(window.location.pathname);
+    window.addEventListener("popstate", syncPathname);
+    return () => window.removeEventListener("popstate", syncPathname);
+  }, []);
 
   /* Captured on the first render and never re-read: by the time the effect
      below runs, clearShareFromUrl has taken the marker back out of the URL. */
@@ -242,6 +250,8 @@ export default function App() {
   // again.
   const handleSessionExpired = useCallback(() => {
     forgetViewMemory();
+    window.history.replaceState(null, "", "/login");
+    setPathname("/login");
     setSession({ status: "anonymous" });
   }, []);
 
@@ -573,7 +583,19 @@ export default function App() {
   }
 
   if (session.status === "anonymous") {
-    return <LoginPage onSignedIn={(user) => setSession({ status: "signed-in", user })} />;
+    if (pathname === "/login") {
+      return (
+        <LoginPage
+          onSignedIn={(user) => {
+            window.history.replaceState(null, "", "/");
+            setPathname("/");
+            setSession({ status: "signed-in", user });
+          }}
+        />
+      );
+    }
+
+    return <HomePage />;
   }
 
   const { user } = session;
@@ -622,6 +644,8 @@ export default function App() {
     await authApi.logout().catch(() => undefined);
     // The next person to sign in on this phone starts from default views.
     forgetViewMemory();
+    window.history.replaceState(null, "", "/");
+    setPathname("/");
     setSession({ status: "anonymous" });
   };
 
